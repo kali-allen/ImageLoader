@@ -5,8 +5,8 @@ import android.graphics.BitmapFactory;
 import android.text.TextUtils;
 import android.widget.ImageView;
 
+import org.imageloader.cache.DiskCache;
 import org.imageloader.cache.IImageCache;
-import org.imageloader.cache.MemoryCache;
 
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -18,25 +18,33 @@ import java.util.concurrent.Executors;
  */
 
 public class ImageLoader {
+    private final static ImageLoader instance = new ImageLoader();
     private ExecutorService mExecutor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
-    private IImageCache mIImageCache = new MemoryCache();
 
-    public ImageLoader() {
+    public void setImageCache(IImageCache imageCache) {
+        this.mIImageCache = imageCache;
+    }
 
+    private IImageCache mIImageCache = new DiskCache();
+
+    private ImageLoader() {
+    }
+
+    public static ImageLoader getInstance() {
+        return instance;
     }
 
     public void displayImage(final ImageView imageView, final String url) {
         if (imageView == null || TextUtils.isEmpty(url)) {
             return;
         }
-//        //first, get image from cache
+        //first, get image from cache
         Bitmap bitmap = mIImageCache.get(url);
         imageView.setTag(url);
         if (bitmap != null) {
             imageView.setImageBitmap(bitmap);
             return;
         }
-
         //second,get image from internet
         mExecutor.submit(new Runnable() {
             @Override
@@ -45,6 +53,7 @@ public class ImageLoader {
                 if (bitmap == null) {
                     return;
                 }
+                mIImageCache.put(url, bitmap);
                 if (url.equals(imageView.getTag())) {
                     imageView.post(new Runnable() {
                         @Override
@@ -52,7 +61,6 @@ public class ImageLoader {
                             imageView.setImageBitmap(bitmap);
                         }
                     });
-
                 }
             }
         });
